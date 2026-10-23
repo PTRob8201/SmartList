@@ -11,6 +11,10 @@ st.markdown("A hierarchical note-taking and task management app")
 # Initialize database
 init_db()
 
+# Initialize session state for editing
+if "editing_id" not in st.session_state:
+    st.session_state.editing_id = None
+
 # Top section with add button
 col1, col2, col3 = st.columns([1, 1, 2])
 
@@ -65,7 +69,7 @@ else:
         children = [item for item in items if item['parent_id'] == parent_id]
         
         for item in children:
-            col1, col2, col3 = st.columns([0.5, 6, 1.5])
+            col1, col2, col3, col4 = st.columns([0.5, 5, 1, 1.5])
             
             with col1:
                 # Checkbox for completion
@@ -74,17 +78,54 @@ else:
                     st.rerun()
             
             with col2:
-                # Item title with indentation
+                # Item title with indentation and inline editing
                 indent = "  " * level
-                if item['completed']:
-                    st.markdown(f"{indent}~~{item['title']}~~")
+                
+                # Check if we're in edit mode for this item
+                if st.session_state.editing_id == item['id']:
+                    # Edit mode: show text input
+                    edited_title = st.text_input(
+                        "Edit title",
+                        value=item['title'],
+                        key=f"edit_input_{item['id']}",
+                        label_visibility="collapsed"
+                    )
                 else:
-                    st.markdown(f"{indent}**{item['title']}** (ID: {item['id']})")
+                    # Display mode
+                    if item['completed']:
+                        st.markdown(f"{indent}~~{item['title']}~~")
+                    else:
+                        st.markdown(f"{indent}**{item['title']}** (ID: {item['id']})")
             
             with col3:
-                if st.button("🗑️", key=f"del_{item['id']}", help="Delete item"):
-                    delete_item(item['id'])
-                    st.rerun()
+                # Edit button
+                if st.session_state.editing_id == item['id']:
+                    # Save button when editing
+                    if st.button("💾", key=f"save_{item['id']}", help="Save changes"):
+                        edited_title = st.session_state.get(f"edit_input_{item['id']}", item['title'])
+                        if edited_title.strip():
+                            update_item(item['id'], edited_title)
+                            st.session_state.editing_id = None
+                            st.rerun()
+                else:
+                    # Edit button
+                    if st.button("✏️", key=f"edit_{item['id']}", help="Edit item"):
+                        st.session_state.editing_id = item['id']
+                        st.rerun()
+            
+            with col4:
+                col_delete, col_cancel = st.columns(2)
+                
+                with col_delete:
+                    if st.button("🗑️", key=f"del_{item['id']}", help="Delete item"):
+                        delete_item(item['id'])
+                        st.rerun()
+                
+                with col_cancel:
+                    if st.session_state.editing_id == item['id']:
+                        if st.button("✕", key=f"cancel_{item['id']}", help="Cancel editing"):
+                            st.session_state.editing_id = None
+                            st.rerun()
             
             # Recursively display children
             display_items(items, item['id'], level + 1)
@@ -93,4 +134,4 @@ else:
 
 # Footer
 st.divider()
-st.caption("💡 Tip: Use the Parent Item ID to create nested lists. Root items have ID > 0.")
+st.caption("💡 Tip: Click ✏️ to edit items inline, click 💾 to save. Use the Parent Item ID to create nested lists.")
