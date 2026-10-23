@@ -66,108 +66,117 @@ items = get_items()
 if not items:
     st.info("No items yet. Click '➕ Add New Item' to create one!")
 else:
-    # Display items in a hierarchical structure
+    # Display items in a hierarchical structure with proper nesting
     def display_items(items, parent_id=None, level=0):
-        """Recursively display items in a tree structure"""
+        """Recursively display items in a tree structure with proper indentation"""
         children = [item for item in items if item['parent_id'] == parent_id]
         
-        for item in children:
-            col1, col2, col3, col4, col5 = st.columns([0.5, 4.5, 0.8, 0.8, 1.2])
+        for idx, item in enumerate(children):
+            is_last = idx == len(children) - 1
             
-            with col1:
-                # Checkbox for completion
-                if st.checkbox("✓", value=item['completed'], key=f"check_{item['id']}"):
-                    toggle_item(item['id'], not item['completed'])
-                    st.rerun()
+            # Create indentation with tree characters
+            if level == 0:
+                tree_prefix = ""
+                indent = ""
+            else:
+                tree_prefix = "└─ " if is_last else "├─ "
+                indent = "   " * (level - 1) + ("   " if is_last else "│  ")
             
-            with col2:
-                # Item title with indentation and inline editing
-                indent = "  " * level
+            # Create container for each item with proper spacing
+            with st.container(border=False):
+                col1, col2, col3, col4, col5 = st.columns([0.5, 4.5, 0.8, 0.8, 1.2])
                 
-                # Check if we're in edit mode for this item
-                if st.session_state.editing_id == item['id']:
-                    # Edit mode: show text input
-                    edited_title = st.text_input(
-                        "Edit title",
-                        value=item['title'],
-                        key=f"edit_input_{item['id']}",
-                        label_visibility="collapsed"
-                    )
-                else:
-                    # Display mode
-                    if item['completed']:
-                        st.markdown(f"{indent}~~{item['title']}~~")
-                    else:
-                        st.markdown(f"{indent}**{item['title']}** (ID: {item['id']})")
-            
-            with col3:
-                # Add nested item button
-                if st.button("➕", key=f"add_nested_{item['id']}", help="Add sub-item"):
-                    st.session_state.adding_nested_id = item['id']
-                    st.session_state.show_add_form = False
-                    st.rerun()
-            
-            with col4:
-                # Edit button
-                if st.session_state.editing_id == item['id']:
-                    # Save button when editing
-                    if st.button("💾", key=f"save_{item['id']}", help="Save changes"):
-                        edited_title = st.session_state.get(f"edit_input_{item['id']}", item['title'])
-                        if edited_title.strip():
-                            update_item(item['id'], edited_title)
-                            st.session_state.editing_id = None
-                            st.rerun()
-                else:
-                    # Edit button
-                    if st.button("✏️", key=f"edit_{item['id']}", help="Edit item"):
-                        st.session_state.editing_id = item['id']
-                        st.session_state.adding_nested_id = None
-                        st.rerun()
-            
-            with col5:
-                col_delete, col_cancel = st.columns(2)
-                
-                with col_delete:
-                    if st.button("🗑️", key=f"del_{item['id']}", help="Delete item"):
-                        delete_item(item['id'])
+                with col1:
+                    # Checkbox for completion
+                    if st.checkbox("✓", value=item['completed'], key=f"check_{item['id']}"):
+                        toggle_item(item['id'], not item['completed'])
                         st.rerun()
                 
-                with col_cancel:
+                with col2:
+                    # Item title with tree structure and inline editing
                     if st.session_state.editing_id == item['id']:
-                        if st.button("✕", key=f"cancel_{item['id']}", help="Cancel editing"):
-                            st.session_state.editing_id = None
-                            st.rerun()
-            
-            # Show nested add form if this item is selected
-            if st.session_state.adding_nested_id == item['id']:
-                with st.container():
-                    indent_str = "  " * (level + 1)
-                    st.markdown(f"{indent_str}**Add sub-item:**")
-                    
-                    col1, col2 = st.columns([4, 1])
-                    
-                    with col1:
-                        nested_title = st.text_input(
-                            "Sub-item title",
-                            key=f"nested_input_{item['id']}",
-                            placeholder="Enter sub-item title..."
+                        # Edit mode: show text input
+                        edited_title = st.text_input(
+                            "Edit title",
+                            value=item['title'],
+                            key=f"edit_input_{item['id']}",
+                            label_visibility="collapsed"
                         )
-                    
-                    with col2:
-                        if st.button("Add", key=f"add_nested_confirm_{item['id']}", use_container_width=True):
-                            if nested_title.strip():
-                                add_item(nested_title, item['id'])
-                                st.success("Sub-item added!")
-                                st.session_state.adding_nested_id = None
+                    else:
+                        # Display mode with tree structure
+                        if item['completed']:
+                            st.markdown(f"<code>{indent}{tree_prefix}</code>~~{item['title']}~~", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"<code>{indent}{tree_prefix}</code>**{item['title']}** <small>(ID: {item['id']})</small>", unsafe_allow_html=True)
+                
+                with col3:
+                    # Add nested item button
+                    if st.button("➕", key=f"add_nested_{item['id']}", help="Add sub-item"):
+                        st.session_state.adding_nested_id = item['id']
+                        st.session_state.show_add_form = False
+                        st.rerun()
+                
+                with col4:
+                    # Edit button
+                    if st.session_state.editing_id == item['id']:
+                        # Save button when editing
+                        if st.button("💾", key=f"save_{item['id']}", help="Save changes"):
+                            edited_title = st.session_state.get(f"edit_input_{item['id']}", item['title'])
+                            if edited_title.strip():
+                                update_item(item['id'], edited_title)
+                                st.session_state.editing_id = None
                                 st.rerun()
-                            else:
-                                st.error("Please enter a title")
-                    
-                    col1, col2 = st.columns([4, 1])
-                    with col2:
-                        if st.button("Cancel", key=f"cancel_nested_{item['id']}", use_container_width=True):
+                    else:
+                        # Edit button
+                        if st.button("✏️", key=f"edit_{item['id']}", help="Edit item"):
+                            st.session_state.editing_id = item['id']
                             st.session_state.adding_nested_id = None
                             st.rerun()
+                
+                with col5:
+                    col_delete, col_cancel = st.columns(2)
+                    
+                    with col_delete:
+                        if st.button("🗑️", key=f"del_{item['id']}", help="Delete item"):
+                            delete_item(item['id'])
+                            st.rerun()
+                    
+                    with col_cancel:
+                        if st.session_state.editing_id == item['id']:
+                            if st.button("✕", key=f"cancel_{item['id']}", help="Cancel editing"):
+                                st.session_state.editing_id = None
+                                st.rerun()
+                
+                # Show nested add form if this item is selected
+                if st.session_state.adding_nested_id == item['id']:
+                    with st.container():
+                        nested_indent = indent + ("   " if is_last else "│  ")
+                        st.markdown(f"<code>{nested_indent}</code>**Add sub-item:**", unsafe_allow_html=True)
+                        
+                        col1, col2 = st.columns([4, 1])
+                        
+                        with col1:
+                            nested_title = st.text_input(
+                                "Sub-item title",
+                                key=f"nested_input_{item['id']}",
+                                placeholder="Enter sub-item title..."
+                            )
+                        
+                        with col2:
+                            if st.button("Add", key=f"add_nested_confirm_{item['id']}", use_container_width=True):
+                                if nested_title.strip():
+                                    add_item(nested_title, item['id'])
+                                    st.success("Sub-item added!")
+                                    st.session_state.adding_nested_id = None
+                                    st.rerun()
+                                else:
+                                    st.error("Please enter a title")
+                        
+                        col1, col2 = st.columns([4, 1])
+                        with col2:
+                            if st.button("Cancel", key=f"cancel_nested_{item['id']}", use_container_width=True):
+                                st.session_state.adding_nested_id = None
+                                st.rerun()
             
             # Recursively display children
             display_items(items, item['id'], level + 1)
