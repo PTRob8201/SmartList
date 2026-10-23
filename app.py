@@ -11,19 +11,44 @@ st.markdown("A hierarchical note-taking and task management app")
 # Initialize database
 init_db()
 
-# Sidebar for actions
-with st.sidebar:
-    st.header("Add New Item")
-    parent_id = st.number_input("Parent Item ID (0 for root)", min_value=0, step=1)
-    title = st.text_input("Item Title")
+# Top section with add button
+col1, col2, col3 = st.columns([1, 1, 2])
+
+with col1:
+    if st.button("➕ Add New Item", use_container_width=True):
+        st.session_state.show_add_form = not st.session_state.get("show_add_form", False)
+
+# Show add form if button is clicked
+if st.session_state.get("show_add_form", False):
+    st.divider()
+    st.subheader("Add New Item")
     
-    if st.button("Add Item", key="add_btn"):
-        if title.strip():
-            add_item(title, parent_id if parent_id > 0 else None)
-            st.success("Item added!")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        title = st.text_input("Item Title", key="new_title")
+    
+    with col2:
+        parent_id = st.number_input("Parent Item ID (0 for root)", min_value=0, step=1, key="new_parent_id")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("✅ Add Item", use_container_width=True):
+            if title.strip():
+                add_item(title, parent_id if parent_id > 0 else None)
+                st.success("Item added!")
+                st.session_state.show_add_form = False
+                st.rerun()
+            else:
+                st.error("Please enter a title")
+    
+    with col2:
+        if st.button("❌ Cancel", use_container_width=True):
+            st.session_state.show_add_form = False
             st.rerun()
-        else:
-            st.error("Please enter a title")
+    
+    st.divider()
 
 # Main content
 st.subheader("Your List")
@@ -32,7 +57,7 @@ st.subheader("Your List")
 items = get_items()
 
 if not items:
-    st.info("No items yet. Add one from the sidebar!")
+    st.info("No items yet. Click '➕ Add New Item' to create one!")
 else:
     # Display items in a hierarchical structure
     def display_items(items, parent_id=None, level=0):
@@ -68,5 +93,4 @@ else:
 
 # Footer
 st.divider()
-st.markdown("---")
 st.caption("💡 Tip: Use the Parent Item ID to create nested lists. Root items have ID > 0.")
