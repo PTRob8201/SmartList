@@ -11,9 +11,11 @@ st.markdown("A hierarchical note-taking and task management app")
 # Initialize database
 init_db()
 
-# Initialize session state for editing
+# Initialize session state for editing and adding nested items
 if "editing_id" not in st.session_state:
     st.session_state.editing_id = None
+if "adding_nested_id" not in st.session_state:
+    st.session_state.adding_nested_id = None
 
 # Top section with add button
 col1, col2, col3 = st.columns([1, 1, 2])
@@ -21,6 +23,7 @@ col1, col2, col3 = st.columns([1, 1, 2])
 with col1:
     if st.button("➕ Add New Item", use_container_width=True):
         st.session_state.show_add_form = not st.session_state.get("show_add_form", False)
+        st.session_state.adding_nested_id = None  # Clear nested form when opening main form
 
 # Show add form if button is clicked
 if st.session_state.get("show_add_form", False):
@@ -69,7 +72,7 @@ else:
         children = [item for item in items if item['parent_id'] == parent_id]
         
         for item in children:
-            col1, col2, col3, col4 = st.columns([0.5, 5, 1, 1.5])
+            col1, col2, col3, col4, col5 = st.columns([0.5, 4.5, 0.8, 0.8, 1.2])
             
             with col1:
                 # Checkbox for completion
@@ -98,6 +101,13 @@ else:
                         st.markdown(f"{indent}**{item['title']}** (ID: {item['id']})")
             
             with col3:
+                # Add nested item button
+                if st.button("➕", key=f"add_nested_{item['id']}", help="Add sub-item"):
+                    st.session_state.adding_nested_id = item['id']
+                    st.session_state.show_add_form = False
+                    st.rerun()
+            
+            with col4:
                 # Edit button
                 if st.session_state.editing_id == item['id']:
                     # Save button when editing
@@ -111,9 +121,10 @@ else:
                     # Edit button
                     if st.button("✏️", key=f"edit_{item['id']}", help="Edit item"):
                         st.session_state.editing_id = item['id']
+                        st.session_state.adding_nested_id = None
                         st.rerun()
             
-            with col4:
+            with col5:
                 col_delete, col_cancel = st.columns(2)
                 
                 with col_delete:
@@ -127,6 +138,37 @@ else:
                             st.session_state.editing_id = None
                             st.rerun()
             
+            # Show nested add form if this item is selected
+            if st.session_state.adding_nested_id == item['id']:
+                with st.container():
+                    indent_str = "  " * (level + 1)
+                    st.markdown(f"{indent_str}**Add sub-item:**")
+                    
+                    col1, col2 = st.columns([4, 1])
+                    
+                    with col1:
+                        nested_title = st.text_input(
+                            "Sub-item title",
+                            key=f"nested_input_{item['id']}",
+                            placeholder="Enter sub-item title..."
+                        )
+                    
+                    with col2:
+                        if st.button("Add", key=f"add_nested_confirm_{item['id']}", use_container_width=True):
+                            if nested_title.strip():
+                                add_item(nested_title, item['id'])
+                                st.success("Sub-item added!")
+                                st.session_state.adding_nested_id = None
+                                st.rerun()
+                            else:
+                                st.error("Please enter a title")
+                    
+                    col1, col2 = st.columns([4, 1])
+                    with col2:
+                        if st.button("Cancel", key=f"cancel_nested_{item['id']}", use_container_width=True):
+                            st.session_state.adding_nested_id = None
+                            st.rerun()
+            
             # Recursively display children
             display_items(items, item['id'], level + 1)
     
@@ -134,4 +176,4 @@ else:
 
 # Footer
 st.divider()
-st.caption("💡 Tip: Click ✏️ to edit items inline, click 💾 to save. Use the Parent Item ID to create nested lists.")
+st.caption("💡 Tip: Click ➕ next to any item to add a sub-item. Click ✏️ to edit, 💾 to save. Click 🗑️ to delete.")
